@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>移動平台語音控制</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #f2f2f2;
+  }
+  #voice-button {
+    cursor: pointer;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    border: none;
+    background-color: #f2f2f2;
+  }
+  #response-box {
+    width: 300px;
+    height: 150px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+  }
+</style>
+</head>
+<body>
+<p>移動平台語音控制系統</p>
+<!-- 使用CSS设置圆形按钮 -->
+<button id="voice-button"><img src="static/2.png" width="100" height="100"></button>
+<div id="response-box"></div>
+
+<script>
+var mediaRecorder;
+var chunks = [];
+var isRecording = false;
+
+var voiceButton = document.getElementById('voice-button');
+
+voiceButton.addEventListener('click', function() {
+    if (!isRecording) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(function(stream) {
+            mediaRecorder = new MediaRecorder(stream);
+            chunks = [];
+
+            mediaRecorder.ondataavailable = function(e) {
+                chunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = function() {
+                var blob = new Blob(chunks, { type: 'audio/wav' }); // 添加 Blob 类型
+                sendAudioData(blob);
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            // 改变按钮图像为录音中的图像
+            voiceButton.innerHTML = '<img src="static/1.png" width="100" height="100">';
+        })
+        .catch(function(err) {
+            console.log('getUserMedia error: ' + err);
+        });
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        // 改变按钮图像为默认图像
+        voiceButton.innerHTML = '<img src="static/2.png" width="100" height="100">';
+    }
+});
+
+function sendAudioData(blob) {
+    var formData = new FormData();
+    formData.append('audio', blob);
+
+    fetch('/execute_speech_recognition', {
+        method: 'POST',
+        body: formData
+    })
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(data) {
+        console.log(data);
+        document.getElementById('response-box').innerHTML = '<p><strong>命令：</strong>' + data.text + '</p>';
+        document.getElementById('response-box').innerHTML += '<p><strong>地點：</strong>' + data.place.join(', ') + '</p>';
+        document.getElementById('response-box').innerHTML += '<p><strong>物品：</strong>' + data.things.join('') + '</p>';
+    })
+    .catch(function(error) {
+        console.error('Error:', error);
+    });
+}
+</script>
+
+</body>
+</html>
